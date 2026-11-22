@@ -1,6 +1,6 @@
 // player.js — the thief: movement, sneaking, running, noise, pebbles,
 // hiding in bushes, and picking up lenses.
-import { TILE, PLAYER, NOISE, PEBBLE } from './config.js';
+import { TILE, PLAYER, NOISE, PEBBLE, SMOKE } from './config.js';
 import { circleHitsWall } from './levels.js';
 import { clamp } from './random.js';
 
@@ -17,6 +17,7 @@ export function createPlayer(level) {
     stepPhase: 0, // drives the footstep sounds
     pebbles: PEBBLE.perLevel,
     pebbleCooldown: 0,
+    smoke: SMOKE.perLevel, // smoke vials: E lobs one, and no eye sees through it
     hidden: false, // standing in a bush right now
     noiseRadius: 0,
   };

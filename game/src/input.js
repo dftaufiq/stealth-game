@@ -1,7 +1,8 @@
 // input.js — keyboard and mouse, kept in one place so the game logic never
 // touches a DOM event directly. WASD or arrows move, Shift sneaks,
 // Space runs, Q or a mouse click throws a pebble toward the cursor,
-// E picks up, R restarts the level, P or Esc pauses, M mutes.
+// E lobs a smoke vial toward the cursor, R restarts the level,
+// P or Esc pauses, M mutes.
 export function createInput(canvas) {
   const keys = new Set();
   const input = {

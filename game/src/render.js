@@ -119,6 +119,15 @@ function drawLensesAndExit(ctx, game, time) {
   const ex = (exit.tx + 0.5) * TILE;
   const ey = (exit.ty + 0.5) * TILE;
   const open = game.lensesLeft === 0;
+  // A beacon of light rises from the exit so it reads at a glance from
+  // anywhere on the level — even where the HUD bar covers its top edge.
+  ctx.save();
+  const beamGrad = ctx.createLinearGradient(ex, ey - 90, ex, ey);
+  beamGrad.addColorStop(0, 'rgba(141, 255, 158, 0)');
+  beamGrad.addColorStop(1, open ? 'rgba(141, 255, 158, 0.35)' : 'rgba(141, 255, 158, 0.14)');
+  ctx.fillStyle = beamGrad;
+  ctx.fillRect(ex - 10, ey - 90, 20, 90);
+  ctx.restore();
   ctx.save();
   ctx.globalAlpha = open ? 0.9 : 0.45;
   ctx.fillStyle = open ? COLORS.exit : '#5a6b52';
@@ -128,14 +137,12 @@ function drawLensesAndExit(ctx, game, time) {
   ctx.fillStyle = '#0c1a10';
   ctx.fillRect(ex - 8, ey - 9, 16, 18);
   ctx.restore();
-  if (open) {
-    ctx.save();
-    ctx.font = 'bold 13px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillStyle = COLORS.exit;
-    ctx.fillText('EXIT OPEN', ex, ey - 22);
-    ctx.restore();
-  }
+  ctx.save();
+  ctx.font = 'bold 13px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = open ? COLORS.exit : 'rgba(141, 255, 158, 0.6)';
+  ctx.fillText(open ? 'EXIT OPEN' : 'EXIT', ex, ey + 32);
+  ctx.restore();
 }
 
 function drawPebbles(ctx, game) {
@@ -155,6 +162,35 @@ function drawPebbles(ctx, game) {
     ctx.beginPath();
     ctx.arc(r.x, r.y, 6 + r.age * 90, 0, Math.PI * 2);
     ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawSmokeClouds(ctx, game) {
+  // Smoke hangs thick and grey over the floor — and over the cones it
+  // blinds, so the player can see exactly where no eye reaches.
+  for (const c of game.smokeClouds) {
+    if (c.kind === 'vial') {
+      ctx.fillStyle = '#dfe6f2';
+      ctx.beginPath();
+      ctx.arc(c.x, c.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
+    const fade = c.age > 3.5 ? Math.max(0, 1 - (c.age - 3.5) / 1.5) : 1;
+    const grow = Math.min(1, c.age / 0.4);
+    ctx.save();
+    ctx.globalAlpha = 0.85 * fade;
+    for (const p of c.puffs) {
+      const r = c.radius * p.r * (0.7 + 0.3 * grow);
+      const grad = ctx.createRadialGradient(c.x + p.dx, c.y + p.dy, 0, c.x + p.dx, c.y + p.dy, r);
+      grad.addColorStop(0, COLORS.smoke);
+      grad.addColorStop(1, 'rgba(168, 178, 198, 0)');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(c.x + p.dx, c.y + p.dy, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
     ctx.restore();
   }
 }
@@ -185,22 +221,29 @@ function drawPlayer(ctx, game, time) {
   const bob = p.moving ? Math.sin(p.stepPhase * 6) * 1.5 : 0;
   ctx.save();
   ctx.translate(p.x, p.y + bob * 0.3);
+  // A pale ring marks the thief against the dark floor: the player must
+  // be findable at a glance, even in a screenshot shrunk to a thumbnail.
+  ctx.strokeStyle = 'rgba(232, 236, 245, 0.85)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(0, 0, 15, 0, Math.PI * 2);
+  ctx.stroke();
   // Cloak.
   ctx.fillStyle = COLORS.playerCloak;
   ctx.beginPath();
-  ctx.arc(0, 0, 12, 0, Math.PI * 2);
+  ctx.arc(0, 0, 13, 0, Math.PI * 2);
   ctx.fill();
   // Hood and face.
   ctx.fillStyle = COLORS.player;
   ctx.beginPath();
-  ctx.arc(Math.cos(Math.atan2(p.fy, p.fx)) * 3, Math.sin(Math.atan2(p.fy, p.fx)) * 3, 6.5, 0, Math.PI * 2);
+  ctx.arc(Math.cos(Math.atan2(p.fy, p.fx)) * 3, Math.sin(Math.atan2(p.fy, p.fx)) * 3, 7, 0, Math.PI * 2);
   ctx.fill();
   // The thief's little lantern.
   ctx.fillStyle = '#ffe28c';
   ctx.shadowColor = '#ffe28c';
-  ctx.shadowBlur = 12;
+  ctx.shadowBlur = 14;
   ctx.beginPath();
-  ctx.arc(8, 6, 2.5, 0, Math.PI * 2);
+  ctx.arc(9, 7, 3, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 
@@ -295,7 +338,7 @@ function drawDarkness(ctx, game, cam) {
     d.fill();
   };
   // The thief's lantern is the brightest light in the yard.
-  hole(game.player.x, game.player.y, 230, 0.95);
+  hole(game.player.x, game.player.y, 260, 0.95);
   // Every guard carries a lamp, so the watch itself lights the floor
   // around it — guards stay visible against the dark.
   for (const g of game.guards) hole(g.x, g.y, 85, 0.5);
@@ -343,20 +386,20 @@ function drawHud(ctx, game) {
   ctx.fillStyle = color;
   ctx.fillRect(VIEW_W / 2 - 110, 28, 220 * det, 10);
 
-  // Right: time, score, pebbles.
+  // Right: time, score, pebbles and smoke vials.
   ctx.textAlign = 'right';
   ctx.fillStyle = '#e8ecf5';
   ctx.font = 'bold 15px system-ui, sans-serif';
   ctx.fillText(`⏱ ${fmtTime(game.time)}   ★ ${game.score}`, VIEW_W - 16, 22);
   ctx.font = '13px system-ui, sans-serif';
   ctx.fillStyle = '#9fb0d0';
-  ctx.fillText(`Pebbles ${game.player.pebbles}  (click / Q to throw)`, VIEW_W - 16, 41);
+  ctx.fillText(`Pebbles ${game.player.pebbles}  (click / Q)   ·   Smoke ${game.player.smoke}  (E)`, VIEW_W - 16, 41);
 
   // Bottom hint.
   ctx.textAlign = 'left';
   ctx.font = '12px system-ui, sans-serif';
   ctx.fillStyle = 'rgba(232,236,245,0.55)';
-  ctx.fillText('WASD / arrows move · Shift sneak · Space run · E pick up · R retry level · P pause · M mute', 16, VIEW_H - 12);
+  ctx.fillText('WASD / arrows move · Shift sneak · Space run · Click / Q pebble · E smoke vial · R retry level · P pause · M mute', 16, VIEW_H - 12);
   ctx.restore();
 }
 
@@ -444,6 +487,7 @@ export function drawGame(ctx, game, time) {
   drawPlayer(ctx, game, time);
   drawDarkness(ctx, game, cam);
   drawCones(ctx, game);
+  drawSmokeClouds(ctx, game);
   ctx.restore();
 
   drawHud(ctx, game);
@@ -452,11 +496,11 @@ export function drawGame(ctx, game, time) {
   // State overlays.
   if (game.screen === 'title') {
     overlay(ctx, 'LANTERNKEEP', [
-      'A stealth game at the lighthouse — three nights, three break-ins.',
+      'A stealth game at the lighthouse — five nights, five break-ins.',
       'Steal every signal lens. Stay out of the cones. Reach the exit unseen.',
       '',
       'WASD / arrows — move      Shift — sneak      Space — run',
-      'Click or Q — throw a pebble      E — pick up      R — retry level',
+      'Click or Q — throw a pebble      E — smoke vial      R — retry level',
       '',
       'Click or press Enter to begin.',
     ], '#ffe28c');
@@ -486,7 +530,7 @@ export function drawGame(ctx, game, time) {
     ], '#8dff9e');
   } else if (game.screen === 'victory') {
     overlay(ctx, 'THE LAMP IS YOURS', [
-      'Three lenses, three nights, one clean getaway.',
+      'Five lenses, five nights, one clean getaway.',
       `Total time ${fmtTime(game.time)}   ·   Alarms ${game.alarms}   ·   Score ${game.score}`,
       game.alarms === 0 ? 'Rating: GHOST — the perfect thief.' : game.alarms <= 2 ? 'Rating: SHADOW — barely a whisper.' : 'Rating: THIEF — loud, but gone.',
       '',

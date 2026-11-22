@@ -7,6 +7,7 @@ import { createInput } from './input.js';
 import { createPlayer, updatePlayer, throwPebble, updatePebbles } from './player.js';
 import { createGuard, updateGuard, guardHears, GUARD_STATE } from './guard.js';
 import { createBeam, updateBeam, createCameras, updateCameras, lightsDetection } from './beam.js';
+import { createSmokeClouds, throwSmokeVial, updateSmokeClouds } from './gadgets.js';
 import { createAudio } from './audio.js';
 import { drawGame } from './render.js';
 import { applyShot } from './shots.js';
@@ -29,6 +30,7 @@ const game = {
   cameras: [],
   pebbles: [],
   ripples: [],
+  smokeClouds: [],
   detection: 0,
   time: 0,
   levelTime: 0,
@@ -53,6 +55,7 @@ function loadLevel(index) {
   game.cameras = createCameras(level);
   game.pebbles = [];
   game.ripples = [];
+  game.smokeClouds = createSmokeClouds();
   game.detection = 0;
   game.levelTime = 0;
   game.levelAlarms = 0;
@@ -102,6 +105,15 @@ function updatePlaying(dt) {
     if (throwPebble(player, game.pebbles, tx, ty)) audio.pebble();
   }
 
+  // Lob a smoke vial with E, toward the mouse: no eye sees through smoke.
+  if (input.pressed.has('interact')) {
+    audio.ensure();
+    const tx = input.mouseX || player.x + player.fx * 200;
+    const ty = input.mouseY || player.y + player.fy * 200;
+    if (throwSmokeVial(player, game.smokeClouds, tx, ty)) audio.smoke();
+  }
+  updateSmokeClouds(game.smokeClouds, level, dt);
+
   const noise = updatePlayer(player, level, input, dt);
   if (noise) {
     for (const g of game.guards) guardHears(g, noise);
@@ -124,11 +136,11 @@ function updatePlaying(dt) {
   updateBeam(game.beam, dt);
   updateCameras(game.cameras, game.time);
 
-  // Guards watch, think, and sometimes catch the thief.
+  // Guards watch, think, and sometimes catch the thief. Smoke blinds them.
   let anySeen = false;
   for (const g of game.guards) {
     const before = g.state;
-    const res = updateGuard(g, level, player, dt, game.time);
+    const res = updateGuard(g, level, player, dt, game.time, game.smokeClouds);
     if (res.seen) anySeen = true;
     if (before !== GUARD_STATE.CHASE && g.state === GUARD_STATE.CHASE) audio.alert();
     if (res.caught) {
@@ -139,7 +151,8 @@ function updatePlaying(dt) {
   }
 
   // The lights feed the same detection meter as the guards' eyes.
-  const lightAdded = lightsDetection(game.beam, game.cameras, level, player, dt);
+  // Smoke blinds the beam and the cameras too.
+  const lightAdded = lightsDetection(game.beam, game.cameras, level, player, dt, game.smokeClouds);
   game.detection = Math.min(1, game.detection + lightAdded);
   const topSuspicion = game.guards.reduce((m, g) => Math.max(m, g.suspicion), 0);
   const shown = Math.max(game.detection, topSuspicion);

@@ -60,6 +60,15 @@ export const PEBBLE = {
   cooldown: 0.8,
 };
 
+// Smoke vials: lobbed with E, they burst into a cloud no eye sees
+// through — a moving piece of cover, and a way out of a chase.
+export const SMOKE = {
+  perLevel: 2,
+  flySpeed: 380,
+  radius: 78,
+  duration: 5,
+};
+
 // Palette: a cold night, warm lamplight, and cones that read at a glance.
 export const COLORS = {
   floorA: '#232a38',
@@ -85,5 +94,7 @@ export const COLORS = {
   coneSuspicious: 'rgba(255, 150, 60, 0.28)',
   coneAlert: 'rgba(255, 70, 60, 0.32)',
   beam: 'rgba(255, 226, 140, 0.20)',
-  darkness: 'rgba(3, 5, 14, 0.62)',
+  darkness: 'rgba(3, 5, 14, 0.50)',
+  smoke: 'rgba(168, 178, 198, 0.55)',
+  smokeEdge: 'rgba(210, 218, 232, 0.35)',
 };

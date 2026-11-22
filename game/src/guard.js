@@ -6,6 +6,7 @@
 // miss is a scare, not an instant fail.
 import { TILE, GUARD } from './config.js';
 import { circleHitsWall, hasLineOfSight } from './levels.js';
+import { smokeBlocksSight } from './gadgets.js';
 import { angleDiff, clamp, dist } from './random.js';
 
 export const GUARD_STATE = {
@@ -54,17 +55,19 @@ function moveToward(guard, tx, ty, speed, dt, level) {
 
 // Can this guard see the player right now? Range, cone, line of sight,
 // and bushes hide the player unless the guard is nearly on top of them.
-export function guardSeesPlayer(guard, level, player) {
+// Smoke hangs between them and no eye sees through it.
+export function guardSeesPlayer(guard, level, player, clouds) {
   const d = dist(guard.x, guard.y, player.x, player.y);
   if (d > GUARD.viewRange) return false;
   if (player.hidden && d > GUARD.bushRevealRange) return false;
   const toPlayer = Math.atan2(player.y - guard.y, player.x - guard.x);
   if (Math.abs(angleDiff(guard.angle, toPlayer)) > GUARD.viewHalfAngle) return false;
+  if (clouds && smokeBlocksSight(clouds, guard.x, guard.y, player.x, player.y)) return false;
   return hasLineOfSight(level, guard.x, guard.y, player.x, player.y);
 }
 
-export function updateGuard(guard, level, player, dt, now) {
-  const seen = guardSeesPlayer(guard, level, player);
+export function updateGuard(guard, level, player, dt, now, clouds) {
+  const seen = guardSeesPlayer(guard, level, player, clouds);
   const d = dist(guard.x, guard.y, player.x, player.y);
 
   // Suspicion fills faster up close, drains when the player is unseen.

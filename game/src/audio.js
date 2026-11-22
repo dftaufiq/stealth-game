@@ -101,6 +101,8 @@ export function createAudio() {
   };
 
   audio.pebble = () => noiseBurst(0.09, 0.3, 2400);
+  // A smoke vial bursting: a soft low hiss, nothing like the alarm.
+  audio.smoke = () => noiseBurst(0.5, 0.22, 700);
   audio.pickup = () => {
     tone(880, 0.12, 'sine', 0.22);
     tone(1318, 0.18, 'sine', 0.2, 0.08);

@@ -3,6 +3,7 @@
 // same detection meter, so the player reads them the same way.
 import { TILE, BEAM, CAMERA } from './config.js';
 import { hasLineOfSight } from './levels.js';
+import { smokeBlocksSight } from './gadgets.js';
 import { angleDiff, clamp, dist } from './random.js';
 
 export function createBeam(level) {
@@ -39,34 +40,36 @@ export function updateCameras(cameras, time) {
 }
 
 // Is the player standing in the beam? Range, wedge, and line of sight
-// from the tower (crates and walls block the light).
-export function playerInBeam(beam, level, player) {
+// from the tower (crates and walls block the light). Smoke blocks it too.
+export function playerInBeam(beam, level, player, clouds) {
   if (!beam) return false;
   const d = dist(beam.x, beam.y, player.x, player.y);
   if (d > BEAM.range) return false;
   const toPlayer = Math.atan2(player.y - beam.y, player.x - beam.x);
   if (Math.abs(angleDiff(beam.angle, toPlayer)) > BEAM.halfAngle) return false;
   if (player.hidden && d > 90) return false; // bushes still help
+  if (clouds && smokeBlocksSight(clouds, beam.x, beam.y, player.x, player.y)) return false;
   return hasLineOfSight(level, beam.x, beam.y, player.x, player.y);
 }
 
-export function cameraSeesPlayer(cam, level, player) {
+export function cameraSeesPlayer(cam, level, player, clouds) {
   const d = dist(cam.x, cam.y, player.x, player.y);
   if (d > CAMERA.range) return false;
   const toPlayer = Math.atan2(player.y - cam.y, player.x - cam.x);
   if (Math.abs(angleDiff(cam.angle, toPlayer)) > CAMERA.halfAngle) return false;
+  if (clouds && smokeBlocksSight(clouds, cam.x, cam.y, player.x, player.y)) return false;
   return hasLineOfSight(level, cam.x, cam.y, player.x, player.y);
 }
 
 // Feed beam and camera sightings into the shared detection meter. Returns
 // how much detection the lights added this frame (0 when nothing sees).
-export function lightsDetection(beam, cameras, level, player, dt) {
+export function lightsDetection(beam, cameras, level, player, dt, clouds) {
   let added = 0;
-  if (beam && playerInBeam(beam, level, player)) {
+  if (beam && playerInBeam(beam, level, player, clouds)) {
     added += BEAM.seeRate * dt;
   }
   for (const cam of cameras) {
-    if (cameraSeesPlayer(cam, level, player)) {
+    if (cameraSeesPlayer(cam, level, player, clouds)) {
       added += CAMERA.seeRate * dt;
     }
   }
